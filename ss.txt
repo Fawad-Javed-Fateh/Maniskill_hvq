@@ -1,0 +1,61 @@
+python /workspace/ManiSkill_release/examples/baselines/act/train_act_hq_vae.py --env-id PickCube-v1 \
+  --demo-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.state.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 5000 
+
+
+python /workspace/ManiSkill_release/examples/baselines/act/train_act_hq_vae.py --env-id PickCube-v1 \
+  --demo-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.h5 \
+  --control-mode "pd_joint_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 5000 
+
+python -m mani_skill.trajectory.replay_trajectory \
+  --traj-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.h5 \
+  --use-first-env-state -c pd_ee_delta_pos -o state \
+  --save-traj  -b cpu
+
+
+python -m mani_skill.trajectory.replay_trajectory \
+  --traj-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.h5 \
+  --use-first-env-state \
+  -c pd_ee_delta_pos \
+  -o state \
+  --save-traj \
+  -b physx_cpu \
+  -n 1
+
+
+python -m mani_skill.trajectory.replay_trajectory \
+  --traj-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.h5 \
+  --use-first-env-state -c pd_ee_delta_pos -o state \
+  --save-traj  -b cpu
+
+
+  python train.py --env-id PickCube-v1 \
+  --demo-path ~/.maniskill/demos/PickCube-v1/motionplanning/trajectory.state.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "physx_cpu" --num_demos $demos --max_episode_steps 100 \
+  --total_iters 30000 --log_freq 100 --eval_freq 5000 \
+  --exp-name=act-PickCube-v1-state-${demos}_motionplanning_demos-$seed \
+  --track
+
+
+python /workspace/ManiSkill_release/examples/baselines/act/train_act_hq_vae.py --env-id PickCube-v1 \
+  --demo-path /workspace/ManiSkill2/processed_demos/LiftCube-v0/trajectory.rgbd.pd_ee_delta_pose.h5 \
+  --control-mode "pd_ee_delta_pose" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 100  --track
+
+
+python /workspace/ManiSkill_release_new/examples/baselines/act/train_hvq_vae.py --env-id PickCube-v1 \
+  --demo-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.rgb.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 500  --track 
+
+
+  python /workspace/ManiSkill_release_new/examples/baselines/act/train_hvq_vae.py --env-id PickCube-v1 \
+  --demo-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.rgb.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 500  --track 
+
+python /workspace/ManiSkill_release_new/examples/baselines/act/train_new.py --env-id PickCube-v1 \
+  --demo-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.rgbd.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 500  --track 
+
+python -m mani_skill.trajectory.replay_trajectory \
+  --traj-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.h5 \
+  --use-first-env-state -c pd_ee_delta_pos -o rgbd \
+  --save-traj --num-envs 10 -b physx_cpu
