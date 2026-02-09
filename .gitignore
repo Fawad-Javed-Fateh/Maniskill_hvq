@@ -47,5 +47,5 @@ imgui.ini
 htmlcov/
 
 /runs
-/examples
+
 /wandb

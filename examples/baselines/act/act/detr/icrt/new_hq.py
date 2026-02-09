@@ -1,0 +1,102 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn.utils import spectral_norm
+
+
+def normalization(Wi, softplus_ci):  # L-inf norm
+    absrowsum = torch.sum(torch.abs(Wi), dim=1, keepdim=True)  # Shape: (out_dim, 1)
+    scale = torch.minimum(
+        torch.tensor(1.0, device=Wi.device),
+        F.softplus(softplus_ci).unsqueeze(1) / absrowsum,
+    )
+    return Wi * scale
+
+class LipschitzMLP(nn.Module):
+    def __init__(self, in_dim, out_dim):
+        super().__init__()
+        self.W = nn.Parameter(torch.randn(out_dim, in_dim))
+        self.b = nn.Parameter(torch.zeros(out_dim))
+        self.ci = nn.Parameter(torch.ones(out_dim))
+
+    def forward(self, x):
+        W_norm = normalization(self.W, self.ci)
+        return torch.sigmoid(torch.matmul(x, W_norm.T) + self.b)
+
+class LFQQuantizer(nn.Module):
+    def __init__(self, num_codes, code_dim):
+        super().__init__()
+        self.num_codes = num_codes
+        self.code_dim = code_dim
+        self.codebook = nn.Parameter(torch.randn(num_codes, code_dim))
+        nn.init.kaiming_uniform_(self.codebook)
+
+    def forward(self, z_e):
+        batch_size, seq_len, latent_dim = z_e.shape
+        z_e_expanded = z_e.unsqueeze(2)  # Shape: [B, S, 1, D]
+        codebook_expanded = self.codebook.unsqueeze(0).unsqueeze(0)  # [1, 1, N, D]
+        distances = torch.norm(z_e_expanded - codebook_expanded, dim=-1)
+        indices = torch.argmin(distances, dim=-1)
+        z_q = self.codebook[indices]  # [B, S, D]
+        return z_q, indices
+
+class LipFQ_VAE(nn.Module):
+    def __init__(self, feature_dim, latent_dim, num_z=64,num_q=16, hidden_dim=1024):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(feature_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, hidden_dim),
+            nn.ReLU(),
+        )
+        self.to_latent = LipschitzMLP(hidden_dim, latent_dim)
+        self.quantizer_z = LFQQuantizer(num_z, latent_dim)
+        self.quantizer_q = LFQQuantizer(num_q, latent_dim)
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, hidden_dim),
+            nn.ReLU(),
+        )
+        self.to_output = nn.Linear(hidden_dim, feature_dim)
+
+    def forward(self, x):
+        batch_size, seq_len, feature_dim = x.shape
+        x_flat = x.reshape(-1, feature_dim)
+        h = self.encoder(x_flat).view(batch_size, seq_len, -1)
+        z_e = self.to_latent(h)
+        z_q, indices = self.quantizer_z(z_e)
+        z_latent = z_q.clone().detach()
+        q_e=self.to_latent(z_latent)
+        q_q,q_indices=self.quantizer_q(z_q)
+        q_detached=q_q.clone().detach()
+        recon = self.decoder(q_q).view(batch_size, seq_len, -1)
+        x_recon = self.to_output(recon)
+        
+        # Loss computation
+        recon_loss = F.mse_loss(x_recon, x)
+        commitment_loss_z = F.mse_loss(z_q.detach(), z_e)
+        codebook_loss_z = F.mse_loss(z_q, z_e.detach())
+        commitment_loss_q = F.mse_loss(q_q.detach(), q_e)
+        codebook_loss_q = F.mse_loss(q_q, q_e.detach())
+        loss = recon_loss + 0.25 * commitment_loss_z + 0.25 * codebook_loss_z+ 0.25 * commitment_loss_q + 0.25 * codebook_loss_q
+
+        return q_detached, loss
+
+if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    batch_size = 32
+    seq_len = 256
+    feature_dim = 256
+    latent_dim = 256
+    num_codes = 128
+    model = LipFQ_VAE(feature_dim, latent_dim, num_codes).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    data = torch.randn(batch_size, seq_len, feature_dim).to(device)
+
+    for epoch in range(1000):
+        optimizer.zero_grad()
+        z_latent, loss = model(data)
+        print(f"Epoch {epoch}: Latent Shape {data.shape}, Loss {loss.item():.4f}")
+        loss.backward()
+        optimizer.step()
