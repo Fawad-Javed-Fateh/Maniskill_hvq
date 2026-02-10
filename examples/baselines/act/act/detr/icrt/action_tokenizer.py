@@ -4,6 +4,8 @@ from act.detr.icrt.lfq_vae import LFQ_VAE
 from act.detr.icrt.mlp import MLP_Encoder
 from act.detr.icrt.bin import AdaptiveBinActionEmbedding
 
+from act.detr.icrt.new_hq import HVQ
+
 def build_encoder(args):
     d_model = args.hidden_dim # 256
     dropout = args.dropout # 0.1
@@ -53,6 +55,19 @@ def build_mega_mind(args):
     activation = "relu"
 
     encoder = LFQ_VAE(feature_dim=d_model, latent_dim=d_model)
+
+    return encoder
+
+def build_time_mlp(args):
+    d_model = args.hidden_dim # 256
+    dropout = args.dropout # 0.1
+    nhead = args.nheads # 8
+    dim_feedforward = args.dim_feedforward # 2048
+    num_encoder_layers = args.enc_layers # 4 # TODO shared with VAE decoder
+    normalize_before = args.pre_norm # False
+    activation = "relu"
+
+    encoder = HVQ(feature_dim=d_model, latent_dim=d_model)
 
     return encoder
 

@@ -28,69 +28,84 @@ def evaluate(n: int, agent, eval_envs, eval_kwargs):
         actions_to_take = torch.zeros([num_envs, num_queries, action_dim], device=device)
 
     agent.eval()
+
     with torch.no_grad():
         eval_metrics = defaultdict(list)
         obs, info = eval_envs.reset()
         ts, eps_count = 0, 0
+
+        EP_PRINT_FREQ = 5  # print every 5 episodes
+
         while eps_count < n:
-            # pre-process obs
+            # ------------------ preprocess obs ------------------
             if use_visual_obs:
-                obs['state'] = pre_process(obs['state']) if not delta_control else obs['state']  # (num_envs, obs_dim)
+                obs["state"] = pre_process(obs["state"]) if not delta_control else obs["state"]
                 obs = {k: common.to_tensor(v, device) for k, v in obs.items()}
             else:
-                obs = pre_process(obs) if not delta_control else obs  # (num_envs, obs_dim)
+                obs = pre_process(obs) if not delta_control else obs
                 obs = common.to_tensor(obs, device)
 
-            # query policy
+            # ------------------ query policy ------------------
             if ts % query_frequency == 0:
-                action_seq = agent.get_action(obs)  # (num_envs, num_queries, action_dim)
+                action_seq = agent.get_action(obs)  # (num_envs, num_queries, act_dim)
 
-            # we assume ignore_terminations=True. Otherwise, some envs could be done
-            # earlier, so we would need to temporally ensemble at corresponding timestep
-            # for each env.
             if temporal_agg:
-                assert query_frequency == 1, "query_frequency != 1 has not been implemented for temporal_agg==1."
-                all_time_actions[:, ts, ts:ts+num_queries] = action_seq # (num_envs, num_queries, act_dim)
-                actions_for_curr_step = all_time_actions[:, :, ts] # (num_envs, max_timesteps, act_dim)
-                # since we pad the action with 0 in 'delta_pos' control mode, this causes error.
-                #actions_populated = torch.all(actions_for_curr_step[0] != 0, axis=1) # (max_timesteps,)
-                actions_populated = torch.zeros(max_timesteps, dtype=torch.bool, device=device) # (max_timesteps,)
-                actions_populated[max(0, ts + 1 - num_queries):ts+1] = True
-                actions_for_curr_step = actions_for_curr_step[:, actions_populated] # (num_envs, num_populated, act_dim)
+                assert query_frequency == 1
+                all_time_actions[:, ts, ts:ts + num_queries] = action_seq
+                actions_for_curr_step = all_time_actions[:, :, ts]
+
+                actions_populated = torch.zeros(max_timesteps, dtype=torch.bool, device=device)
+                actions_populated[max(0, ts + 1 - num_queries): ts + 1] = True
+                actions_for_curr_step = actions_for_curr_step[:, actions_populated]
+
                 k = 0.01
                 if ts < num_queries:
-                    exp_weights = torch.exp(-k * torch.arange(len(actions_for_curr_step[0]), device=device)) # (num_populated,)
-                    exp_weights = exp_weights / exp_weights.sum() # (num_populated,)
-                    exp_weights = torch.tile(exp_weights, (num_envs, 1)) # (num_envs, num_populated)
-                    exp_weights = torch.unsqueeze(exp_weights, -1) # (num_envs, num_populated, 1)
-                raw_action = (actions_for_curr_step * exp_weights).sum(dim=1)  # (num_envs, act_dim)
+                    exp_weights = torch.exp(
+                        -k * torch.arange(len(actions_for_curr_step[0]), device=device)
+                    )
+                    exp_weights = exp_weights / exp_weights.sum()
+                    exp_weights = exp_weights[None, :, None].repeat(num_envs, 1, 1)
+
+                raw_action = (actions_for_curr_step * exp_weights).sum(dim=1)
             else:
                 if ts % query_frequency == 0:
                     actions_to_take = action_seq
                 raw_action = actions_to_take[:, ts % query_frequency]
 
-            action = post_process(raw_action) if not delta_control else raw_action  # (num_envs, act_dim)
+            action = post_process(raw_action) if not delta_control else raw_action
             if sim_backend == "physx_cpu":
                 action = action.cpu().numpy()
 
-            # step the environment
+            # ------------------ env step ------------------
             obs, rew, terminated, truncated, info = eval_envs.step(action)
             ts += 1
 
-            # collect episode info
+            # ------------------ episode end ------------------
             if truncated.any():
-                assert truncated.all() == truncated.any(), "all episodes should truncate at the same time for fair evaluation with other algorithms"
+                assert truncated.all(), "All envs must truncate together"
+
                 if isinstance(info["final_info"], dict):
-                    for k, v in info["final_info"]["episode"].items():
+                    ep_info = info["final_info"]["episode"]
+                    for k, v in ep_info.items():
                         eval_metrics[k].append(v.float().cpu().numpy())
                 else:
                     for final_info in info["final_info"]:
                         for k, v in final_info["episode"].items():
                             eval_metrics[k].append(v)
-                # new episodes begin
+
                 eps_count += num_envs
                 ts = 0
-                all_time_actions = torch.zeros([num_envs, max_timesteps, max_timesteps+num_queries, action_dim], device=device)
+                all_time_actions = torch.zeros(
+                    [num_envs, max_timesteps, max_timesteps + num_queries, action_dim],
+                    device=device,
+                )
+
+                # ------------------ print stats every 5 episodes ------------------
+                if (eps_count // num_envs) % EP_PRINT_FREQ == 0:
+                    print(f"\n📊 Eval stats after {eps_count} episodes:")
+                    for k, v in eval_metrics.items():
+                        last_vals = np.array(v[-EP_PRINT_FREQ:])
+                        print(f"  {k}: {last_vals.mean():.4f}")
 
     agent.train()
     for k in eval_metrics.keys():

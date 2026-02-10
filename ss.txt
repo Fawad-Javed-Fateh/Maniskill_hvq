@@ -51,9 +51,14 @@ python /workspace/ManiSkill_release_new/examples/baselines/act/train_hvq_vae.py 
   --demo-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.rgb.pd_ee_delta_pos.physx_cpu.h5 \
   --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 500  --track 
 
-python /workspace/ManiSkill_release_new/examples/baselines/act/train_new.py --env-id PickCube-v1 \
-  --demo-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.rgbd.pd_ee_delta_pos.physx_cpu.h5 \
-  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 500  --track 
+python /home/retrocausal-train/Desktop/Maniskill_hvq/examples/baselines/act/train_mlp.py --env-id PickCube-v1 \
+  --demo-path /home/retrocausal-train/Desktop/maniskill_dataset/trajectory.rgbd.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 50000 --save_freq 5000  --track 
+
+
+python /home/retrocausal-train/Desktop/Maniskill_hvq/examples/baselines/act/train_auth.py --env-id PickCube-v1 \
+  --demo-path /home/retrocausal-train/Desktop/maniskill_dataset/trajectory.rgbd.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 50000 --save_freq 5000  --track 
 
 python -m mani_skill.trajectory.replay_trajectory \
   --traj-path /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.h5 \
@@ -63,3 +68,8 @@ python -m mani_skill.trajectory.replay_trajectory \
 
 rsync -avz /workspace/.maniskill/data/demos/PickCube-v1/motionplanning/trajectory.rgbd.pd_ee_delta_pos.physx_cpu.json \
       retrocausal-train@50.190.20.103:/home/retrocausal-train/Desktop/maniskill_dataset/
+
+
+python /home/retrocausal-train/Desktop/Maniskill_hvq/examples/baselines/act/eval.py --env-id PickCube-v1 \
+  --demo-path /home/retrocausal-train/Desktop/maniskill_dataset/trajectory.rgbd.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "gpu" --max_episode_steps 100 --total_iters 5000 --save_freq 500  --track 

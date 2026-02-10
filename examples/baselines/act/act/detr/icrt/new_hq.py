@@ -40,7 +40,22 @@ class LFQQuantizer(nn.Module):
         z_q = self.codebook[indices]  # [B, S, D]
         return z_q, indices
 
-class LipFQ_VAE(nn.Module):
+class TimeMLP(nn.Module):
+    def __init__(self, q_dim):
+        super().__init__()
+        self.fc1 = nn.Linear(q_dim, 2 * q_dim)
+        self.fc2 = nn.Linear(2 * q_dim, q_dim)
+        self.fc_last = nn.Linear(q_dim, 1)
+
+    def forward(self, x):
+        x = torch.sigmoid(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x))
+        t_hat = self.fc_last(x)
+        return t_hat
+
+
+
+class HVQ(nn.Module):
     def __init__(self, feature_dim, latent_dim, num_z=64,num_q=16, hidden_dim=1024):
         super().__init__()
         self.encoder = nn.Sequential(
@@ -50,6 +65,7 @@ class LipFQ_VAE(nn.Module):
             nn.ReLU(),
         )
         self.to_latent = LipschitzMLP(hidden_dim, latent_dim)
+        self.q_encoder = LipschitzMLP(latent_dim, latent_dim)
         self.quantizer_z = LFQQuantizer(num_z, latent_dim)
         self.quantizer_q = LFQQuantizer(num_q, latent_dim)
         self.decoder = nn.Sequential(
@@ -59,6 +75,7 @@ class LipFQ_VAE(nn.Module):
             nn.ReLU(),
         )
         self.to_output = nn.Linear(hidden_dim, feature_dim)
+        self.time_mlp= TimeMLP(q_dim=latent_dim)
 
     def forward(self, x):
         batch_size, seq_len, feature_dim = x.shape
@@ -67,19 +84,30 @@ class LipFQ_VAE(nn.Module):
         z_e = self.to_latent(h)
         z_q, indices = self.quantizer_z(z_e)
         z_latent = z_q.clone().detach()
-        q_e=self.to_latent(z_latent)
-        q_q,q_indices=self.quantizer_q(z_q)
+        q_e=self.q_encoder(z_latent)
+        q_q,q_indices=self.quantizer_q(q_e)
         q_detached=q_q.clone().detach()
         recon = self.decoder(q_q).view(batch_size, seq_len, -1)
         x_recon = self.to_output(recon)
         
+        t_per_seq = torch.linspace(0, 1, steps=seq_len, device=x.device)
+        t = t_per_seq.unsqueeze(0).expand(batch_size, seq_len)
+        t_flat = t.reshape(batch_size * seq_len)
+        time_pred= self.time_mlp(q_e.reshape(batch_size * seq_len, -1))
+        time_loss = F.mse_loss(time_pred.squeeze(-1), t_flat)
+
+
         # Loss computation
         recon_loss = F.mse_loss(x_recon, x)
         commitment_loss_z = F.mse_loss(z_q.detach(), z_e)
         codebook_loss_z = F.mse_loss(z_q, z_e.detach())
         commitment_loss_q = F.mse_loss(q_q.detach(), q_e)
         codebook_loss_q = F.mse_loss(q_q, q_e.detach())
-        loss = recon_loss + 0.25 * commitment_loss_z + 0.25 * codebook_loss_z+ 0.25 * commitment_loss_q + 0.25 * codebook_loss_q
+        loss = recon_loss + 0.25 * commitment_loss_z + 0.25 * codebook_loss_z+ 0.25 * commitment_loss_q + 0.25 * codebook_loss_q + 0.02*time_loss
+        # print('recon_loss', recon_loss)
+        # print('z_loss',( 0.25 * (commitment_loss_z+codebook_loss_z)))
+        # print('q_loss', (0.25 * (commitment_loss_q+codebook_loss_q )))
+        # print('time_loss', 0.02*time_loss)
 
         return q_detached, loss
 
