@@ -446,7 +446,7 @@ if __name__ == "__main__":
     if args.exp_name is None:
         args.exp_name = os.path.basename(__file__)[: -len(".py")]
         run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-        run_name='og_50000_epochs'
+        run_name='og_PushCube_50000_epochs'
     else:
         run_name = args.exp_name
 
