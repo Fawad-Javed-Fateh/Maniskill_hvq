@@ -362,8 +362,8 @@ class Agent(nn.Module):
         transformer = build_transformer(args)
 
         # CVAE encoder
-        #encoder = build_lfq_encoder(args)
-        encoder = build_mega_mind(args)
+        encoder = build_lfq_encoder(args)
+        #encoder = build_mega_mind(args)
         # ACT ( CVAE encoder + (CNN backbones + CVAE decoder) )
         self.model = ACT_DETRVAE(
             backbones,
@@ -446,7 +446,7 @@ if __name__ == "__main__":
     if args.exp_name is None:
         args.exp_name = os.path.basename(__file__)[: -len(".py")]
         run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-        run_name='og_PushCube_50000_epochs'
+        run_name='og_pick_cube_losss'
     else:
         run_name = args.exp_name
 

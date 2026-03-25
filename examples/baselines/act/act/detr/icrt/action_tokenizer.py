@@ -28,7 +28,7 @@ def build_lfq_encoder(args):
     normalize_before = args.pre_norm # False
     activation = "relu"
 
-    encoder = HierarchicalLFQHVQVAE(feature_dim=d_model, z_dim=d_model,q_dim=d_model,num_z_codes=64,num_q_codes=16)
+    encoder = LipFQ_VAE(feature_dim=d_model,latent_dim=d_model)
 
     return encoder
 
@@ -67,6 +67,7 @@ def build_time_mlp(args):
     normalize_before = args.pre_norm # False
     activation = "relu"
 
+    # encoder = HVQ(feature_dim=d_model,z_dim=d_model,q_dim=d_model,num_z_codes=64,num_q_codes=16)
     encoder = HVQ(feature_dim=d_model, latent_dim=d_model)
 
     return encoder

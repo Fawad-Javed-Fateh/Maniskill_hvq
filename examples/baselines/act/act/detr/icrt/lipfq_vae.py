@@ -74,6 +74,8 @@ class LipFQ_VAE(nn.Module):
         commitment_loss = F.mse_loss(z_q.detach(), z_e)
         codebook_loss = F.mse_loss(z_q, z_e.detach())
         loss = recon_loss + 0.25 * commitment_loss + 0.25 * codebook_loss
+        print("recon",recon_loss)
+        print('commit',0.25*(commitment_loss+codebook_loss))
         return z_latent, loss
 
 if __name__ == "__main__":

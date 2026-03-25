@@ -103,12 +103,20 @@ class HVQ(nn.Module):
         codebook_loss_z = F.mse_loss(z_q, z_e.detach())
         commitment_loss_q = F.mse_loss(q_q.detach(), q_e)
         codebook_loss_q = F.mse_loss(q_q, q_e.detach())
-        loss = recon_loss + 0.25 * commitment_loss_z + 0.25 * codebook_loss_z+ 0.25 * commitment_loss_q + 0.25 * codebook_loss_q + 0.02*time_loss
+        loss = recon_loss + 0.25 * (commitment_loss_z +  codebook_loss_z)+ 0.25* (commitment_loss_q + codebook_loss_q) + 0.02*time_loss
+        # print('\n')
+        # print("commit",0.25 * (commitment_loss_z +  codebook_loss_z)+ 1* (commitment_loss_q + codebook_loss_q))
+        # print('time',0.2*time_loss)
+        # print("recon",1*recon_loss)
+        # print('commit_z',commitment_loss_z)
+        # print('codebook_z',codebook_loss_z)
+        # print('commit_q',commitment_loss_q)
+        # print('codebook_q',codebook_loss_q)
         # print('recon_loss', recon_loss)
         # print('z_loss',( 0.25 * (commitment_loss_z+codebook_loss_z)))
         # print('q_loss', (0.25 * (commitment_loss_q+codebook_loss_q )))
         # print('time_loss', 0.02*time_loss)
-
+        #print(q_detached.shape)
         return q_detached, loss
 
 if __name__ == "__main__":

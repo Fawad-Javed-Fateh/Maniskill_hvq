@@ -446,7 +446,7 @@ if __name__ == "__main__":
     if args.exp_name is None:
         args.exp_name = os.path.basename(__file__)[: -len(".py")]
         run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-        run_name='0.02_time_loss_push_cube'
+        run_name='pick_cube_weight_fix'
     else:
         run_name = args.exp_name
 
@@ -536,7 +536,6 @@ if __name__ == "__main__":
     # accelerates training and improves stability
     # holds a copy of the model weights
     ema = EMAModel(parameters=agent.parameters(), power=0.75)
-   
     ema_agent = Agent(envs, args).to(device)
 
     # Evaluation
@@ -586,10 +585,12 @@ if __name__ == "__main__":
             last_tick = time.time()
 
             ema.copy_to(ema_agent.parameters())
-
+            # agent.model.encoder.z_quantizer.training=False
+            # agent.model.encoder.q_quantizer.training=False
             eval_metrics = evaluate(args.num_eval_episodes, ema_agent, envs, eval_kwargs)
             timings["eval"] += time.time() - last_tick
-
+            # agent.model.encoder.z_quantizer.training=True
+            # agent.model.encoder.q_quantizer.training=True
             print(f"Evaluated {len(eval_metrics['success_at_end'])} episodes")
             for k in eval_metrics.keys():
                 eval_metrics[k] = np.mean(eval_metrics[k])
