@@ -430,13 +430,13 @@ def kl_divergence(mu, logvar):
     return total_kld, dimension_wise_kld, mean_kld
 
 def save_ckpt(run_name, tag):
-    os.makedirs(f'/workspace/ManiSkill_release_new/runs/{run_name}/checkpoints', exist_ok=True)
+    os.makedirs(f'/home/retrocausal-train/Desktop/Maniskill_hvq/runs/{run_name}/checkpoints', exist_ok=True)
     ema.copy_to(ema_agent.parameters())
     torch.save({
         'norm_stats': dataset.norm_stats,
         'agent': agent.state_dict(),
         'ema_agent': ema_agent.state_dict(),
-    }, f'/workspace/ManiSkill_release_new/runs/{run_name}/checkpoints/{tag}.pt')
+    }, f'/home/retrocausal-train/Desktop/Maniskill_hvq/runs/{run_name}/checkpoints/{tag}.pt')
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
@@ -444,7 +444,7 @@ if __name__ == "__main__":
     if args.exp_name is None:
         args.exp_name = os.path.basename(__file__)[: -len(".py")]
         run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-        run_name='Pick_Cube_64_16'
+        run_name='Stack_cube_murad'
     else:
         run_name = args.exp_name
 

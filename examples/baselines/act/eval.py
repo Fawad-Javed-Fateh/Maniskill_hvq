@@ -363,7 +363,7 @@ class Agent(nn.Module):
 
         # CVAE encoder
         #encoder = build_lfq_encoder(args)
-        encoder = build_mega_mind(args)
+        encoder = build_hvq_encoder(args)
         # ACT ( CVAE encoder + (CNN backbones + CVAE decoder) )
         self.model = ACT_DETRVAE(
             backbones,
